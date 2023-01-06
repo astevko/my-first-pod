@@ -1,0 +1,49 @@
+# deployments vs statefulsets vs daemonsets
+# https://medium.com/stakater/k8s-deployments-vs-statefulsets-vs-daemonsets-60582f0c62d4
+# deployment of a counter that creates a PersistentVolumneClaim 
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: counter
+  template:
+    metadata:
+      labels:
+        app: counter
+    spec:
+      containers:
+      - name: counter
+        image: "kahootali/counter:1.1"
+        volumeMounts:
+        - name: counter-volume
+          mountPath: /app/
+      volumes:
+      - name: counter-volume
+        persistentVolumeClaim:
+          claimName: counter-volume-claim
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: counters-volume
+spec:
+  # ...
+  hostPath:
+    path: /tmp/counter-volume
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: counter-volumne-claim
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Mi
+
