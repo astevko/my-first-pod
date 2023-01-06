@@ -1,0 +1,90 @@
+# reference https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
+# naming convention
+# pvc name: task-pv-claim
+# pvc storageClassName: manual
+# pv  name: task-pv-volume -> hostPath path ...
+# pod name: task-pv-pod
+# pod volume name: task-pv-storage -> pvc task-pv-claim
+# pod container name: task-pv-container -> volume name: task-pv-storage -> pvc task-pv-claim
+# pod container volume name: task-pv-storage -> pvc task-pv-claim
+# pod container volumeMounts task-pv-storage
+#
+# % kubectl apply -f pods-storage-pv-hostPath.yaml
+# % kubectl get po,pv,pvc
+# % kubectl exec -it task-pv-pod -- /bin/bash
+---
+# PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Mi
+---
+# PV
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+  annotations:
+    pv.beta.kubernetes.io/gid: "50"
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/Users/andrewstevko/work/my-first-pod/mnt/data"
+---
+# POD 1 - nginx server with PV mount
+# mounts localhost mnt/data/html as nginx/html
+apiVersion: v1
+kind: Pod
+metadata:
+  name: task-pv-pod1
+spec:
+  volumes:
+    - name: task-pv-storage
+      persistentVolumeClaim:
+        claimName: task-pv-claim
+  containers:
+    - name: task-pv-container
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: "http-server"
+      volumeMounts:
+        - mountPath: "/usr/share/nginx/html"
+          name: task-pv-storage
+          subPath: html
+---
+# POD 2 - nginx server with dual mounts to same PV
+apiVersion: v1
+kind: Pod
+metadata:
+  name: task-pv-pod2
+spec:
+  containers:
+    - name: task-pv-container2
+      image: nginx
+      volumeMounts:
+        # a mount for site-data
+        - name: task-pv-storage2
+          mountPath: /usr/share/nginx/html
+          subPath: html
+        # another mount for nginx config
+        - name: task-pv-storage2
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+  volumes:
+    - name: task-pv-storage2
+      persistentVolumeClaim:
+        claimName: task-pv-claim
